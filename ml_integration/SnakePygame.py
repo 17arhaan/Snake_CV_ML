@@ -65,6 +65,7 @@ class SnakeGame:
 
         _, frame = self.cap.read()
         frame = cv2.flip(frame, 1)
+        frame = cv2.resize(frame, (320, 240))  # Resize the frame to make it smaller
         hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
         lower_skin = np.array([0, 20, 70], dtype=np.uint8)
         upper_skin = np.array([20, 255, 255], dtype=np.uint8)
@@ -72,20 +73,35 @@ class SnakeGame:
         mask = cv2.GaussianBlur(mask, (5, 5), 100)
         contours, _ = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
+        gesture = "None"
         if contours and len(contours) > 0:
             max_contour = max(contours, key=cv2.contourArea)
             x, y, w, h = cv2.boundingRect(max_contour)
 
             if w > 3 or h > 3:  # Ensure significant movement
                 if x < frame.shape[1] // 3:
-                    return "left"
+                    gesture = "left"
                 elif x > 2 * frame.shape[1] // 3:
-                    return "right"
+                    gesture = "right"
                 elif y < frame.shape[0] // 3:
-                    return "up"
+                    gesture = "up"
                 elif y > 2 * frame.shape[0] // 3:
-                    return "down"
-        return "None"
+                    gesture = "down"
+
+            # Draw the bounding rectangle on the frame
+            cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
+
+        # Display the gesture on the frame
+        cv2.putText(frame, f"Gesture: {gesture}", (10, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2, cv2.LINE_AA)
+
+        # Show the live feed
+        cv2.imshow('Gesture Control', frame)
+
+        # Check for quit command
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            self.game_close = True
+
+        return gesture
 
     def step(self, action="None"):
         if self.mode == 'manual':
@@ -197,23 +213,34 @@ class SnakeGame:
                             self.get_player_name()
                             menu = False
                             self.reset_game()
+                            self.countdown()  # Add countdown before starting
                             self.run(None)
                         elif self.menu_selection == 1:
                             self.mode = 'ai'
                             menu = False
                             self.reset_game()
+                            self.countdown()  # Add countdown before starting
                             self.run(10000)
                         elif self.menu_selection == 2:
                             self.mode = 'gesture'
                             self.get_player_name()
                             menu = False
                             self.reset_game()
+                            self.countdown()  # Add countdown before starting
                             self.run(None)
                         elif self.menu_selection == 3:
                             self.show_leaderboard()
                         elif self.menu_selection == 4:
                             pygame.quit()
                             quit()
+
+    def countdown(self):
+        for i in range(10, 0, -1):
+            self.screen.fill(self.color.beige)
+            countdown_text = self.font.render(f"Starting in {i}...", True, self.color.dark_brown)
+            self.screen.blit(countdown_text, [self.w / 2 - 50, self.h / 2])
+            pygame.display.update()
+            time.sleep(1)
 
     def run(self, ep):
         if self.mode == 'ai':
@@ -244,6 +271,7 @@ class SnakeGame:
                 self.clock.tick(self.spd if self.mode != 'gesture' else self.spd // 2)  # Slow speed for gestures
         if self.cap:
             self.cap.release()  # Release video capture if used
+            cv2.destroyAllWindows()  # Close all OpenCV windows
 
     def get_player_name(self):
         input_active = True
