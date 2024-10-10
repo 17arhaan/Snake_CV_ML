@@ -1,210 +1,10 @@
-#Snake_QLearning.py
-
-import random
-import numpy as np
-import pickle
-class LearnSnake:
-    def __init__(self):         
-        self.screen_width = 600
-        self.screen_height = 400
-        self.snake_size = 10
-        self.snake_speed = 10
-        self.snake_coords = []
-        self.snake_length = 1
-        self.dir = "right"
-        self.board = np.zeros((self.screen_height // self.snake_size, self.screen_width // self.snake_size))
-        self.game_close = False
-        self.x1 = self.screen_width / 2
-        self.y1 = self.screen_height / 2
-        self.r1, self.c1 = self.coords_to_index(self.x1, self.y1)
-        self.board[self.r1][self.c1] = 1
-        self.c_change = 1
-        self.r_change = 0
-        self.food_r, self.food_c = self.generate_food()
-        self.board[self.food_r][self.food_c] = 2
-        self.survived = 0
-        self.step()
-    def get_state(self):
-        head_r, head_c = self.snake_coords[-1]
-        state = []
-        state.append(int(self.dir == "left"))
-        state.append(int(self.dir == "right"))
-        state.append(int(self.dir == "up"))
-        state.append(int(self.dir == "down"))
-        state.append(int(self.food_r < head_r))
-        state.append(int(self.food_r > head_r))
-        state.append(int(self.food_c < head_c))
-        state.append(int(self.food_c > head_c))
-        state.append(self.is_unsafe(head_r + 1, head_c))
-        state.append(self.is_unsafe(head_r - 1, head_c))
-        state.append(self.is_unsafe(head_r, head_c + 1))
-        state.append(self.is_unsafe(head_r, head_c - 1))
-        return tuple(state)
-    def is_unsafe(self, r, c):
-        if self.valid_index(r, c):
-          if self.board[r][c] == 1:
-              return 1
-          return 0
-        else:
-          return 1
-    def get_dist(self, r1, c1, r2, c2):
-        return ((r2 - r1) ** 2 + (c2 - c1) ** 2) ** 0.5
-    def valid_index(self, r, c):
-        return 0 <= r < len(self.board) and 0 <= c < len(self.board[0])
-    def coords_to_index(self, x, y):
-        r = int(y // 10)
-        c = int(x // 10)
-        return (r, c)
-    def generate_food(self):
-        food_c = int(round(random.randrange(0, self.screen_width - self.snake_size) / 10.0))
-        food_r = int(round(random.randrange(0, self.screen_height - self.snake_size) / 10.0))
-        if self.board[food_r][food_c] != 0:
-            food_r, food_c = self.generate_food()
-        return food_r, food_c
-    def game_over(self):
-        return self.game_close
-    def step(self, action="None"):
-        if action == "None":
-            action = random.choice(["left", "right", "up", "down"])
-        else:
-            action = ["left", "right", "up", "down"][action]
-        reward = 0
-        if action == "left" and (self.dir != "right" or self.snake_length == 1):
-            self.c_change = -1
-            self.r_change = 0
-            self.dir = "left"
-        elif action == "right" and (self.dir != "left" or self.snake_length == 1):
-            self.c_change = 1
-            self.r_change = 0
-            self.dir = "right"
-        elif action == "up" and (self.dir != "down" or self.snake_length == 1):
-            self.r_change = -1
-            self.c_change = 0
-            self.dir = "up"
-        elif action == "down" and (self.dir != "up" or self.snake_length == 1):
-            self.r_change = 1
-            self.c_change = 0
-            self.dir = "down"
-        if self.c1 >= self.screen_width // self.snake_size or self.c1 < 0 or self.r1 >= self.screen_height // self.snake_size or self.r1 < 0:
-            self.game_close = True
-        self.c1 += self.c_change
-        self.r1 += self.r_change
-        self.snake_coords.append((self.r1, self.c1))
-        if self.valid_index(self.r1, self.c1):
-            self.board[self.r1][self.c1] = 1
-        if len(self.snake_coords) > self.snake_length:
-            rd, cd = self.snake_coords[0]
-            del self.snake_coords[0]
-            if self.valid_index(rd, cd):
-                self.board[rd][cd] = 0
-        for r, c in self.snake_coords[:-1]:
-            if r == self.r1 and c == self.c1:
-                self.game_close = True
-        if self.c1 == self.food_c and self.r1 == self.food_r:
-            self.food_r, self.food_c = self.generate_food()
-            self.board[self.food_r][self.food_c] = 2
-            self.snake_length += 1
-            reward = 1 # Khana
-        else:
-            rh1, ch1 = self.snake_coords[-1]
-            if len(self.snake_coords) == 1:
-                rh2, ch2 = rh1, ch1
-            else:
-                rh2, ch2 = self.snake_coords[-1]
-        if self.game_close:
-            reward = -10  # Dead
-        self.survived += 1    
-        return self.get_state(), reward, self.game_close
-    def run_game(self, episode):
-        filename = f"Q_table_results/{episode}.pickle"
-        with open(filename, 'rb') as file:
-            table = pickle.load(file)
-        current_length = 2
-        steps_unchanged = 0
-        while not self.game_over():
-            state = self.get_state()
-            action = np.argmax(table[state])
-            if steps_unchanged == 1000:
-                break
-            self.step(action)
-            if self.snake_length != current_length:
-                steps_unchanged = 0
-                current_length = self.snake_length
-            else:
-                steps_unchanged += 1
-        return self.snake_length
-
-
-
-
-#SnakeQAgent.py
-
-import os
-import numpy as np
-import random
-from Snake_QLearning import LearnSnake
-import pickle
-class SnakeQAgent:
-    def __init__(self, a):
-        self.dr = 0.95
-        self.lr = 0.01
-        self.exp_rate = 1.0
-        self.exp_decay = 0.9992
-        self.min_exp = 0.001
-        self.episodes = a
-        self.q_table = np.zeros((2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 4))
-        self.env = LearnSnake()
-        self.scores = []
-        self.survived = []
-    def choose_action(self, state):
-        if random.random() < self.exp_rate:
-            return random.choice([0, 1, 2, 3])
-        return np.argmax(self.q_table[state])
-    def train(self):
-        if not os.path.exists('Q_table_results'):
-            os.makedirs('Q_table_results')
-        for ep in range(1, self.episodes + 1):
-            self.env = LearnSnake()
-            steps_no_food = 0
-            length = self.env.snake_length
-            if ep % 10 == 0:
-                print(f"Episodes: {ep}, score: {np.mean(self.scores)}, survived: {np.mean(self.survived)}, exp_rate: {self.exp_rate}, lr: {self.lr}")
-                self.scores = []
-                self.survived = []
-            if (ep < 500 and ep % 10 == 0) or (ep >= 500 and ep < 1000 and ep % 200 == 0) or (ep >= 1000 and ep % 500 == 0):
-                with open(f'Q_table_results/{ep}.pickle', 'wb') as file:
-                    pickle.dump(self.q_table, file)
-            state = self.env.get_state()
-            self.exp_rate = max(self.exp_rate * self.exp_decay, self.min_exp)
-            done = False
-            while not done:
-                action = self.choose_action(state)
-                new_state, reward, done = self.env.step(action)
-                self.q_table[state][action] = (1 - self.lr) * self.q_table[state][action] + self.lr * (reward + self.dr * max(self.q_table[new_state])) 
-                state = new_state
-                steps_no_food += 1
-                if length != self.env.snake_length:
-                    length = self.env.snake_length
-                    steps_no_food = 0
-                if steps_no_food == 1000:
-                    break
-            self.scores.append(self.env.snake_length - 1)
-            self.survived.append(self.env.survived)
-def main():
-    a = int(input("Number of episodes or trials to Train : "))
-    agent = SnakeQAgent(a)
-    agent.train()
-if __name__ == "__main__":
-    main()
-
-
-#SnakePygame.py
-
 import random
 import numpy as np
 import pygame
 import pickle
 import time
+import json
+
 class Color:
     def __init__(self):
         self.white = (255, 255, 255)
@@ -212,8 +12,15 @@ class Color:
         self.neon_red = (255, 0, 0)
         self.cyan = (0, 255, 255)
         self.blue = (0, 0, 255)
+        self.green = (0, 255, 0)
+        self.beige = (245, 245, 220)
+        self.dark_brown = (101, 67, 33)
+        self.selected_brown = (139, 69, 19)
+        self.tail_glow = (150, 75, 0)
+        self.blink_red = (255, 69, 0)
+
 class SnakeGame:
-    def __init__(self):
+    def __init__(self, mode='ai'):
         self.show_episode = True
         self.episode = None
         self.scale = 2
@@ -223,7 +30,7 @@ class SnakeGame:
         self.sn_size = int(10 * self.scale)
         self.fd_size = int(10 * self.scale)
         self.spd = 20
-        self.sn_coords = []
+        self.sn_coords = [(self.h // self.sn_size // 2, self.w // self.sn_size // 2)]  # Initialize snake with one segment in the center
         self.sn_len = 1
         self.dir = "right"
         self.board = np.zeros((self.h // self.sn_size, self.w // self.sn_size))
@@ -237,27 +44,41 @@ class SnakeGame:
         self.fd_r, self.fd_c = self.mk_food()
         self.board[self.fd_r][self.fd_c] = 2
         self.surv = 0
+        self.mode = mode  # 'manual' or 'ai'
+        self.menu_selection = 0
+        self.player_name = ""
+        self.latest_ai_score = 0
+        self.replay_data = []
         pygame.init()
         self.color = Color()
         self.screen = pygame.display.set_mode((self.w, self.h + self.pad))
+        pygame.display.set_caption("Serpentine")
         self.clock = pygame.time.Clock()
         self.font = pygame.font.SysFont("bahnschrift", int(18 * self.scale))
         self.last_dir = None
-        self.step()
+        
     def show_score(self, score):
-        text = self.font.render(f"Score: {score}", True, self.color.white)
+        text = self.font.render(f"Score: {score}", True, self.color.dark_brown)
         self.screen.blit(text, [500 * self.scale, 10])
+
+    def show_player_name(self):
+        if self.player_name:
+            text = self.font.render(f"Player : {self.player_name}", True, self.color.dark_brown)
+            self.screen.blit(text, [10, 10])
+
     def draw_snake(self):
         for i in range(len(self.sn_coords) - 1, -1, -1):
             row, col = self.sn_coords[i]
             x, y = self.idx_to_coord(row, col)
             if i == len(self.sn_coords) - 1:
-                pygame.draw.rect(self.screen, self.color.blue, [x, y, self.sn_size, self.sn_size])  # Head
+                pygame.draw.rect(self.screen, self.color.dark_brown, [x, y, self.sn_size, self.sn_size])  # Head
             else:
-                pygame.draw.rect(self.screen, self.color.cyan, [x, y, self.sn_size, self.sn_size])  # Body
+                pygame.draw.rect(self.screen, self.color.tail_glow, [x, y, self.sn_size, self.sn_size])  # Body
+
     def game_end_msg(self):
-        msg = self.font.render("Game over!", True, self.color.neon_red)
+        msg = self.font.render("Game over!", True, self.color.dark_brown)
         self.screen.blit(msg, [2 * self.w / 5, 2 * self.h / 5 + self.pad])
+
     def is_unsafe(self, row, col):
         if self.valid_idx(row, col):
             if self.board[row][col] == 1:
@@ -265,6 +86,7 @@ class SnakeGame:
             return 0
         else:
             return 1
+
     def get_state(self):
         hr, hc = self.sn_coords[-1]
         state = []
@@ -281,31 +103,50 @@ class SnakeGame:
         state.append(self.is_unsafe(hr, hc + 1))
         state.append(self.is_unsafe(hr, hc - 1))
         return tuple(state)
+
     def valid_idx(self, row, col):
         return 0 <= row < len(self.board) and 0 <= col < len(self.board[0])
+
     def idx_to_coord(self, row, col):
         x = col * self.sn_size
         y = row * self.sn_size + self.pad
         return (x, y)
+
     def coord_to_idx(self, x, y):
         row = int((y - self.pad) // self.sn_size)
         col = int(x // self.sn_size)
         return (row, col)
+
     def mk_food(self):
         col = int(round(random.randrange(0, self.w - self.fd_size) / self.fd_size))
         row = int(round(random.randrange(0, self.h - self.fd_size) / self.fd_size))
         if self.board[row][col] != 0:
             row, col = self.mk_food()
         return row, col
+
     def game_over(self):
         return self.game_close
+
     def step(self, action="None"):
-        if action == "None":
-            action = random.choice(["left", "right", "up", "down"])
+        if self.mode == 'manual':
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    self.game_close = True
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_LEFT and self.dir != "right":
+                        action = "left"
+                    elif event.key == pygame.K_RIGHT and self.dir != "left":
+                        action = "right"
+                    elif event.key == pygame.K_UP and self.dir != "down":
+                        action = "up"
+                    elif event.key == pygame.K_DOWN and self.dir != "up":
+                        action = "down"
         else:
-            action = ["left", "right", "up", "down"][action]
-        for event in pygame.event.get():
-            pass
+            if action == "None":
+                action = random.choice(["left", "right", "up", "down"])
+            else:
+                action = ["left", "right", "up", "down"][action]
+
         self.last_dir = self.dir
         if action == "left" and (self.dir != "right" or self.sn_len == 1):
             self.col_chg = -1
@@ -323,66 +164,268 @@ class SnakeGame:
             self.row_chg = 1
             self.col_chg = 0
             self.dir = "down"
+
         if self.c >= self.w // self.sn_size or self.c < 0 or self.r >= self.h // self.sn_size or self.r < 0:
             self.game_close = True
+
         self.c += self.col_chg
         self.r += self.row_chg
-        self.screen.fill(self.color.black)
-        pygame.draw.rect(self.screen, self.color.white, (0, self.pad, self.w, self.h), 1)
+
+        # Store step for replay
+        self.replay_data.append((self.sn_coords.copy(), self.fd_r, self.fd_c))
+
+        self.screen.fill(self.color.beige)
+        pygame.draw.rect(self.screen, self.color.dark_brown, (0, self.pad, self.w, self.h), 1)
         fd_x, fd_y = self.idx_to_coord(self.fd_r, self.fd_c)
         pygame.draw.rect(self.screen, self.color.neon_red, [fd_x, fd_y, self.fd_size, self.fd_size])
+
         self.sn_coords.append((self.r, self.c))
         if self.valid_idx(self.r, self.c):
             self.board[self.r][self.c] = 1
+
         if len(self.sn_coords) > self.sn_len:
             r_del, c_del = self.sn_coords[0]
             del self.sn_coords[0]
             if self.valid_idx(r_del, c_del):
                 self.board[r_del][c_del] = 0
+
         for r, c in self.sn_coords[:-1]:
             if r == self.r and c == self.c:
                 self.game_close = True
+
         self.draw_snake()
+        self.show_player_name()
         self.show_score(self.sn_len - 1)
         pygame.display.update()
+
         if self.c == self.fd_c and self.r == self.fd_r:
             self.fd_r, self.fd_c = self.mk_food()
             self.board[self.fd_r][self.fd_c] = 2
             self.sn_len += 1
+
         self.surv += 1
+
     def run(self, ep):
-        self.show_episode = True
-        self.episode = ep
-        pygame.display.update()
-        fname = f"C:\\Users\\asus\\OneDrive\\Documents\\Coding\\Snake_CV_ML\\Q_table_results/{ep}.pickle"
-        with open(fname, 'rb') as file:
-            table = pickle.load(file)
-        time.sleep(5)
-        cur_len = 2
-        unchanged_steps = 0
-        while not self.game_over():
-            if self.sn_len != cur_len:
-                unchanged_steps = 0
-                cur_len = self.sn_len
-            else:
-                unchanged_steps += 1
-            state = self.get_state()
-            action = np.argmax(table[state])
-            if unchanged_steps == 1000:
-                break
-            self.step(action)
-            self.clock.tick(self.spd)
+        if self.mode == 'ai':
+            self.show_episode = True
+            self.episode = ep
+            pygame.display.update()
+            fname = f"C:\\Users\\asus\\OneDrive\\Documents\\Coding\\Snake_CV_ML\\Q_table_results/{ep}.pickle"
+            with open(fname, 'rb') as file:
+                table = pickle.load(file)
+            time.sleep(5)
+            cur_len = 2
+            unchanged_steps = 0
+            while not self.game_over():
+                if self.sn_len != cur_len:
+                    unchanged_steps = 0
+                    cur_len = self.sn_len
+                else:
+                    unchanged_steps += 1
+                state = self.get_state()
+                action = np.argmax(table[state])
+                if unchanged_steps == 1000:
+                    break
+                self.step(action)
+                self.clock.tick(self.spd)
+        else:
+            while not self.game_over():
+                self.step()
+                self.clock.tick(self.spd)
         if self.game_over():
-            self.screen.fill(self.color.black)
+            self.update_leaderboard(self.player_name, self.sn_len - 1)
+            self.screen.fill(self.color.beige)
             pygame.draw.rect(self.screen, self.color.white, (0, self.pad, self.w, self.h), 1)
             self.game_end_msg()
             self.show_score(self.sn_len - 1)
             pygame.display.update()
             time.sleep(2)
-        pygame.quit()
+            self.ask_for_replay()
+            self.reset_game()
+            self.game_menu()
+
+    def ask_for_replay(self):
+        replay_prompt = True
+        while replay_prompt:
+            self.screen.fill(self.color.beige)
+            replay_text = self.font.render("Do you want to watch the replay? (Y/N)", True, self.color.dark_brown)
+            self.screen.blit(replay_text, [self.w / 4, self.h / 3])
+            pygame.display.update()
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    quit()
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_y:
+                        self.play_replay()
+                        replay_prompt = False
+                    elif event.key == pygame.K_n:
+                        replay_prompt = False
+
+    def play_replay(self):
+        for step_index, step in enumerate(self.replay_data):
+            sn_coords, fd_r, fd_c = step
+            self.screen.fill(self.color.beige)
+            pygame.draw.rect(self.screen, self.color.dark_brown, (0, self.pad, self.w, self.h), 1)
+            fd_x, fd_y = self.idx_to_coord(fd_r, fd_c)
+            pygame.draw.rect(self.screen, self.color.neon_red, [fd_x, fd_y, self.fd_size, self.fd_size])
+            for i in range(len(sn_coords) - 1, -1, -1):
+                row, col = sn_coords[i]
+                x, y = self.idx_to_coord(row, col)
+                if i == len(sn_coords) - 1:
+                    pygame.draw.rect(self.screen, self.color.dark_brown, [x, y, self.sn_size, self.sn_size])  # Head
+                else:
+                    pygame.draw.rect(self.screen, self.color.tail_glow, [x, y, self.sn_size, self.sn_size])  # Body
+            
+            # Draw replay text
+            # Draw replay text at the top
+            replay_text = self.font.render("Replay !!", True, self.color.dark_brown)
+            self.screen.blit(replay_text, [10, 10])
+            # Blink red light to indicate replay at the top left
+            if step_index % 10 < 5:  # Blinking effect
+                pygame.draw.circle(self.screen, self.color.blink_red, (90, 20), 10)
+            
+            pygame.display.update()
+            self.show_score(len(sn_coords) - 1)  # Show changing score during replay
+            self.show_score(len(sn_coords) - 1)  # Show changing score during replay
+            self.clock.tick(self.spd * 7)  # 7x speed replay
+
+    def reset_game(self):
+        self.sn_coords = [(self.h // self.sn_size // 2, self.w // self.sn_size // 2)]
+        self.sn_len = 1
+        self.dir = "right"
+        self.board = np.zeros((self.h // self.sn_size, self.w // self.sn_size))
+        self.game_close = False
+        self.r, self.c = self.coord_to_idx(self.x, self.y)
+        self.board[self.r][self.c] = 1
+        self.col_chg = 1
+        self.row_chg = 0
+        self.fd_r, self.fd_c = self.mk_food()
+        self.board[self.fd_r][self.fd_c] = 2
+        self.surv = 0
+        self.replay_data = []
+
+    def game_menu(self):
+        menu = True
+        options = ["Manual Mode", "AI Mode", "Leaderboard", "Quit"]
+        while menu:
+            self.screen.fill(self.color.beige)
+            title = self.font.render("Serpentine", True, self.color.dark_brown)
+            self.screen.blit(title, [self.w / 3, self.h / 3 - 60])
+
+            for i, option in enumerate(options):
+                color = self.color.selected_brown if i == self.menu_selection else self.color.dark_brown
+                text = self.font.render(f"--> {option}", True, color)
+                self.screen.blit(text, [self.w / 3, self.h / 3 + i * 40])
+
+            pygame.display.update()
+
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    quit()
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_UP:
+                        self.menu_selection = (self.menu_selection - 1) % len(options)
+                    if event.key == pygame.K_DOWN:
+                        self.menu_selection = (self.menu_selection + 1) % len(options)
+                    if event.key == pygame.K_RETURN:
+                        if self.menu_selection == 0:
+                            self.mode = 'manual'
+                            self.get_player_name()
+                            menu = False
+                            self.reset_game()
+                            self.run(None)
+                        elif self.menu_selection == 1:
+                            self.mode = 'ai'
+                            menu = False
+                            self.reset_game()
+                            self.run(10000)
+                        elif self.menu_selection == 2:
+                            self.show_leaderboard()
+                        elif self.menu_selection == 3:
+                            pygame.quit()
+                            quit()
+
+    def get_player_name(self):
+        input_active = True
+        player_name = ""
+        while input_active:
+            self.screen.fill(self.color.beige)
+            prompt = self.font.render("Name : ", True, self.color.dark_brown)
+            name_surface = self.font.render(player_name, True, self.color.selected_brown)
+            self.screen.blit(prompt, [self.w / 3, self.h / 3])
+            self.screen.blit(name_surface, [self.w / 3 + prompt.get_width() + 10, self.h / 3])
+            pygame.display.update()
+
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    quit()
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_RETURN:
+                        input_active = False
+                    elif event.key == pygame.K_BACKSPACE:
+                        player_name = player_name[:-1]
+                    else:
+                        player_name += event.unicode
+        self.player_name = player_name if self.mode == 'manual' else 'Snake AI'
+
+    def update_leaderboard(self, player_name, score):
+        leaderboard_file = "leaderboard.json"
+        try:
+            with open(leaderboard_file, "r") as file:
+                leaderboard = json.load(file)
+        except FileNotFoundError:
+            leaderboard = []
+
+        # Update score if player already exists, else add new player
+        existing_player = next((entry for entry in leaderboard if entry["name"] == player_name), None)
+        if existing_player:
+            existing_player["score"] = max(existing_player["score"], score)
+        else:
+            leaderboard.append({"name": player_name, "score": score})
+
+        # Remove duplicates by player name
+        unique_leaderboard = {entry["name"]: entry for entry in leaderboard}.values()
+
+        # Sort leaderboard and keep top 10 scores
+        leaderboard = sorted(unique_leaderboard, key=lambda x: x["score"], reverse=True)[:10]
+
+        with open(leaderboard_file, "w") as file:
+            json.dump(leaderboard, file, indent=4)
+
+    def show_leaderboard(self):
+        leaderboard_file = "leaderboard.json"
+        try:
+            with open(leaderboard_file, "r") as file:
+                leaderboard = json.load(file)
+        except FileNotFoundError:
+            leaderboard = []
+
+        self.screen.fill(self.color.beige)
+        title = self.font.render("Leaderboard", True, self.color.dark_brown)
+        self.screen.blit(title, [self.w / 3, self.h / 3 - 60])
+
+        if not leaderboard:
+            empty_msg = self.font.render("No scores available", True, self.color.dark_brown)
+            self.screen.blit(empty_msg, [self.w / 3, self.h / 3])
+        else:
+            for i, entry in enumerate(leaderboard):
+                name = "Snake AI" if entry['name'] == "" else entry['name']
+                text = self.font.render(f"{i + 1}. {name}: {entry['score']}", True, self.color.dark_brown)
+                self.screen.blit(text, [self.w / 3, self.h / 3 + i * 40])
+
+        pygame.display.update()
+        time.sleep(5)
+
 if __name__ == "__main__":
     game = SnakeGame()
-    try :
-        game.run(10000)
+    game.game_menu()
+    try:
+        if game.mode == 'ai':
+            game.run(10000)
+        else:
+            game.run(None)
     except KeyboardInterrupt:
-        print("\t\t\t\t\t\t\t!!!Done Already!!!")
+        print("\t\t\t\t\t!!!Done Already!!!")

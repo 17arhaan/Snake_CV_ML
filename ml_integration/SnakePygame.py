@@ -4,6 +4,7 @@ import pygame
 import pickle
 import time
 import json
+import cv2  # Import OpenCV for gesture control
 
 class Color:
     def __init__(self):
@@ -44,7 +45,7 @@ class SnakeGame:
         self.fd_r, self.fd_c = self.mk_food()
         self.board[self.fd_r][self.fd_c] = 2
         self.surv = 0
-        self.mode = mode  # 'manual' or 'ai'
+        self.mode = mode  # 'manual', 'ai', or 'gesture'
         self.menu_selection = 0
         self.player_name = ""
         self.latest_ai_score = 0
@@ -56,76 +57,35 @@ class SnakeGame:
         self.clock = pygame.time.Clock()
         self.font = pygame.font.SysFont("bahnschrift", int(18 * self.scale))
         self.last_dir = None
-        
-    def show_score(self, score):
-        text = self.font.render(f"Score: {score}", True, self.color.dark_brown)
-        self.screen.blit(text, [500 * self.scale, 10])
+        self.cap = None  # Video capture for OpenCV gesture control
 
-    def show_player_name(self):
-        if self.player_name:
-            text = self.font.render(f"Player : {self.player_name}", True, self.color.dark_brown)
-            self.screen.blit(text, [10, 10])
+    def gesture_control(self):
+        if self.cap is None:
+            self.cap = cv2.VideoCapture(0)
 
-    def draw_snake(self):
-        for i in range(len(self.sn_coords) - 1, -1, -1):
-            row, col = self.sn_coords[i]
-            x, y = self.idx_to_coord(row, col)
-            if i == len(self.sn_coords) - 1:
-                pygame.draw.rect(self.screen, self.color.dark_brown, [x, y, self.sn_size, self.sn_size])  # Head
-            else:
-                pygame.draw.rect(self.screen, self.color.tail_glow, [x, y, self.sn_size, self.sn_size])  # Body
+        _, frame = self.cap.read()
+        frame = cv2.flip(frame, 1)
+        hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+        lower_skin = np.array([0, 20, 70], dtype=np.uint8)
+        upper_skin = np.array([20, 255, 255], dtype=np.uint8)
+        mask = cv2.inRange(hsv, lower_skin, upper_skin)
+        mask = cv2.GaussianBlur(mask, (5, 5), 100)
+        contours, _ = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
-    def game_end_msg(self):
-        msg = self.font.render("Game over!", True, self.color.dark_brown)
-        self.screen.blit(msg, [2 * self.w / 5, 2 * self.h / 5 + self.pad])
+        if contours and len(contours) > 0:
+            max_contour = max(contours, key=cv2.contourArea)
+            x, y, w, h = cv2.boundingRect(max_contour)
 
-    def is_unsafe(self, row, col):
-        if self.valid_idx(row, col):
-            if self.board[row][col] == 1:
-                return 1
-            return 0
-        else:
-            return 1
-
-    def get_state(self):
-        hr, hc = self.sn_coords[-1]
-        state = []
-        state.append(int(self.dir == "left"))
-        state.append(int(self.dir == "right"))
-        state.append(int(self.dir == "up"))
-        state.append(int(self.dir == "down"))
-        state.append(int(self.fd_r < hr))
-        state.append(int(self.fd_r > hr))
-        state.append(int(self.fd_c < hc))
-        state.append(int(self.fd_c > hc))
-        state.append(self.is_unsafe(hr + 1, hc))
-        state.append(self.is_unsafe(hr - 1, hc))
-        state.append(self.is_unsafe(hr, hc + 1))
-        state.append(self.is_unsafe(hr, hc - 1))
-        return tuple(state)
-
-    def valid_idx(self, row, col):
-        return 0 <= row < len(self.board) and 0 <= col < len(self.board[0])
-
-    def idx_to_coord(self, row, col):
-        x = col * self.sn_size
-        y = row * self.sn_size + self.pad
-        return (x, y)
-
-    def coord_to_idx(self, x, y):
-        row = int((y - self.pad) // self.sn_size)
-        col = int(x // self.sn_size)
-        return (row, col)
-
-    def mk_food(self):
-        col = int(round(random.randrange(0, self.w - self.fd_size) / self.fd_size))
-        row = int(round(random.randrange(0, self.h - self.fd_size) / self.fd_size))
-        if self.board[row][col] != 0:
-            row, col = self.mk_food()
-        return row, col
-
-    def game_over(self):
-        return self.game_close
+            if w > 3 or h > 3:  # Ensure significant movement
+                if x < frame.shape[1] // 3:
+                    return "left"
+                elif x > 2 * frame.shape[1] // 3:
+                    return "right"
+                elif y < frame.shape[0] // 3:
+                    return "up"
+                elif y > 2 * frame.shape[0] // 3:
+                    return "down"
+        return "None"
 
     def step(self, action="None"):
         if self.mode == 'manual':
@@ -141,6 +101,8 @@ class SnakeGame:
                         action = "up"
                     elif event.key == pygame.K_DOWN and self.dir != "up":
                         action = "down"
+        elif self.mode == 'gesture':
+            action = self.gesture_control()
         else:
             if action == "None":
                 action = random.choice(["left", "right", "up", "down"])
@@ -205,109 +167,9 @@ class SnakeGame:
 
         self.surv += 1
 
-    def run(self, ep):
-        if self.mode == 'ai':
-            self.show_episode = True
-            self.episode = ep
-            pygame.display.update()
-            fname = f"C:\\Users\\asus\\OneDrive\\Documents\\Coding\\Snake_CV_ML\\Q_table_results/{ep}.pickle"
-            with open(fname, 'rb') as file:
-                table = pickle.load(file)
-            time.sleep(5)
-            cur_len = 2
-            unchanged_steps = 0
-            while not self.game_over():
-                if self.sn_len != cur_len:
-                    unchanged_steps = 0
-                    cur_len = self.sn_len
-                else:
-                    unchanged_steps += 1
-                state = self.get_state()
-                action = np.argmax(table[state])
-                if unchanged_steps == 1000:
-                    break
-                self.step(action)
-                self.clock.tick(self.spd)
-        else:
-            while not self.game_over():
-                self.step()
-                self.clock.tick(self.spd)
-        if self.game_over():
-            self.update_leaderboard(self.player_name, self.sn_len - 1)
-            self.screen.fill(self.color.beige)
-            pygame.draw.rect(self.screen, self.color.white, (0, self.pad, self.w, self.h), 1)
-            self.game_end_msg()
-            self.show_score(self.sn_len - 1)
-            pygame.display.update()
-            time.sleep(2)
-            self.ask_for_replay()
-            self.reset_game()
-            self.game_menu()
-
-    def ask_for_replay(self):
-        replay_prompt = True
-        while replay_prompt:
-            self.screen.fill(self.color.beige)
-            replay_text = self.font.render("Do you want to watch the replay? (Y/N)", True, self.color.dark_brown)
-            self.screen.blit(replay_text, [self.w / 4, self.h / 3])
-            pygame.display.update()
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    pygame.quit()
-                    quit()
-                if event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_y:
-                        self.play_replay()
-                        replay_prompt = False
-                    elif event.key == pygame.K_n:
-                        replay_prompt = False
-
-    def play_replay(self):
-        for step_index, step in enumerate(self.replay_data):
-            sn_coords, fd_r, fd_c = step
-            self.screen.fill(self.color.beige)
-            pygame.draw.rect(self.screen, self.color.dark_brown, (0, self.pad, self.w, self.h), 1)
-            fd_x, fd_y = self.idx_to_coord(fd_r, fd_c)
-            pygame.draw.rect(self.screen, self.color.neon_red, [fd_x, fd_y, self.fd_size, self.fd_size])
-            for i in range(len(sn_coords) - 1, -1, -1):
-                row, col = sn_coords[i]
-                x, y = self.idx_to_coord(row, col)
-                if i == len(sn_coords) - 1:
-                    pygame.draw.rect(self.screen, self.color.dark_brown, [x, y, self.sn_size, self.sn_size])  # Head
-                else:
-                    pygame.draw.rect(self.screen, self.color.tail_glow, [x, y, self.sn_size, self.sn_size])  # Body
-            
-            # Draw replay text
-            # Draw replay text at the top
-            replay_text = self.font.render("Replay !!", True, self.color.dark_brown)
-            self.screen.blit(replay_text, [10, 10])
-            # Blink red light to indicate replay at the top left
-            if step_index % 10 < 5:  # Blinking effect
-                pygame.draw.circle(self.screen, self.color.blink_red, (90, 20), 10)
-            
-            pygame.display.update()
-            self.show_score(len(sn_coords) - 1)  # Show changing score during replay
-            self.show_score(len(sn_coords) - 1)  # Show changing score during replay
-            self.clock.tick(self.spd * 7)  # 7x speed replay
-
-    def reset_game(self):
-        self.sn_coords = [(self.h // self.sn_size // 2, self.w // self.sn_size // 2)]
-        self.sn_len = 1
-        self.dir = "right"
-        self.board = np.zeros((self.h // self.sn_size, self.w // self.sn_size))
-        self.game_close = False
-        self.r, self.c = self.coord_to_idx(self.x, self.y)
-        self.board[self.r][self.c] = 1
-        self.col_chg = 1
-        self.row_chg = 0
-        self.fd_r, self.fd_c = self.mk_food()
-        self.board[self.fd_r][self.fd_c] = 2
-        self.surv = 0
-        self.replay_data = []
-
     def game_menu(self):
         menu = True
-        options = ["Manual Mode", "AI Mode", "Leaderboard", "Quit"]
+        options = ["Manual Mode", "AI Mode", "Gesture Mode", "Leaderboard", "Quit"]
         while menu:
             self.screen.fill(self.color.beige)
             title = self.font.render("Serpentine", True, self.color.dark_brown)
@@ -342,10 +204,46 @@ class SnakeGame:
                             self.reset_game()
                             self.run(10000)
                         elif self.menu_selection == 2:
-                            self.show_leaderboard()
+                            self.mode = 'gesture'
+                            self.get_player_name()
+                            menu = False
+                            self.reset_game()
+                            self.run(None)
                         elif self.menu_selection == 3:
+                            self.show_leaderboard()
+                        elif self.menu_selection == 4:
                             pygame.quit()
                             quit()
+
+    def run(self, ep):
+        if self.mode == 'ai':
+            self.show_episode = True
+            self.episode = ep
+            pygame.display.update()
+            fname = f"C:\\Users\\asus\\OneDrive\\Documents\\Coding\\Snake_CV_ML\\Q_table_results/{ep}.pickle"
+            with open(fname, 'rb') as file:
+                table = pickle.load(file)
+            time.sleep(5)
+            cur_len = 2
+            unchanged_steps = 0
+            while not self.game_over():
+                if self.sn_len != cur_len:
+                    unchanged_steps = 0
+                    cur_len = self.sn_len
+                else:
+                    unchanged_steps += 1
+                state = self.get_state()
+                action = np.argmax(table[state])
+                if unchanged_steps == 1000:
+                    break
+                self.step(action)
+                self.clock.tick(self.spd)
+        else:
+            while not self.game_over():
+                self.step()
+                self.clock.tick(self.spd if self.mode != 'gesture' else self.spd // 2)  # Slow speed for gestures
+        if self.cap:
+            self.cap.release()  # Release video capture if used
 
     def get_player_name(self):
         input_active = True
@@ -419,13 +317,135 @@ class SnakeGame:
         pygame.display.update()
         time.sleep(5)
 
+    def game_over(self):
+        return self.game_close
+
+    def get_state(self):
+        hr, hc = self.sn_coords[-1]
+        state = []
+        state.append(int(self.dir == "left"))
+        state.append(int(self.dir == "right"))
+        state.append(int(self.dir == "up"))
+        state.append(int(self.dir == "down"))
+        state.append(int(self.fd_r < hr))
+        state.append(int(self.fd_r > hr))
+        state.append(int(self.fd_c < hc))
+        state.append(int(self.fd_c > hc))
+        state.append(self.is_unsafe(hr + 1, hc))
+        state.append(self.is_unsafe(hr - 1, hc))
+        state.append(self.is_unsafe(hr, hc + 1))
+        state.append(self.is_unsafe(hr, hc - 1))
+        return tuple(state)
+
+    def is_unsafe(self, row, col):
+        if self.valid_idx(row, col):
+            if self.board[row][col] == 1:
+                return 1
+            return 0
+        else:
+            return 1
+
+    def valid_idx(self, row, col):
+        return 0 <= row < len(self.board) and 0 <= col < len(self.board[0])
+
+    def idx_to_coord(self, row, col):
+        x = col * self.sn_size
+        y = row * self.sn_size + self.pad
+        return (x, y)
+
+    def coord_to_idx(self, x, y):
+        row = int((y - self.pad) // self.sn_size)
+        col = int(x // self.sn_size)
+        return (row, col)
+
+    def mk_food(self):
+        col = int(round(random.randrange(0, self.w - self.fd_size) / self.fd_size))
+        row = int(round(random.randrange(0, self.h - self.fd_size) / self.fd_size))
+        if self.board[row][col] != 0:
+            row, col = self.mk_food()
+        return row, col
+
+    def draw_snake(self):
+        for i in range(len(self.sn_coords) - 1, -1, -1):
+            row, col = self.sn_coords[i]
+            x, y = self.idx_to_coord(row, col)
+            if i == len(self.sn_coords) - 1:
+                pygame.draw.rect(self.screen, self.color.dark_brown, [x, y, self.sn_size, self.sn_size])  # Head
+            else:
+                pygame.draw.rect(self.screen, self.color.tail_glow, [x, y, self.sn_size, self.sn_size])  # Body
+
+    def show_score(self, score):
+        text = self.font.render(f"Score: {score}", True, self.color.dark_brown)
+        self.screen.blit(text, [500 * self.scale, 10])
+
+    def show_player_name(self):
+        if self.player_name:
+            text = self.font.render(f"Player : {self.player_name}", True, self.color.dark_brown)
+            self.screen.blit(text, [10, 10])
+
+    def game_end_msg(self):
+        msg = self.font.render("Game over!", True, self.color.dark_brown)
+        self.screen.blit(msg, [2 * self.w / 5, 2 * self.h / 5 + self.pad])
+
+    def ask_for_replay(self):
+        replay_prompt = True
+        while replay_prompt:
+            self.screen.fill(self.color.beige)
+            replay_text = self.font.render("Do you want to watch the replay? (Y/N)", True, self.color.dark_brown)
+            self.screen.blit(replay_text, [self.w / 4, self.h / 3])
+            pygame.display.update()
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    quit()
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_y:
+                        self.play_replay()
+                        replay_prompt = False
+                    elif event.key == pygame.K_n:
+                        replay_prompt = False
+
+    def play_replay(self):
+        for step_index, step in enumerate(self.replay_data):
+            sn_coords, fd_r, fd_c = step
+            self.screen.fill(self.color.beige)
+            pygame.draw.rect(self.screen, self.color.dark_brown, (0, self.pad, self.w, self.h), 1)
+            fd_x, fd_y = self.idx_to_coord(fd_r, fd_c)
+            pygame.draw.rect(self.screen, self.color.neon_red, [fd_x, fd_y, self.fd_size, self.fd_size])
+            for i in range(len(sn_coords) - 1, -1, -1):
+                row, col = sn_coords[i]
+                x, y = self.idx_to_coord(row, col)
+                if i == len(sn_coords) - 1:
+                    pygame.draw.rect(self.screen, self.color.dark_brown, [x, y, self.sn_size, self.sn_size])  # Head
+                else:
+                    pygame.draw.rect(self.screen, self.color.tail_glow, [x, y, self.sn_size, self.sn_size])  # Body
+
+            # Draw replay text
+            replay_text = self.font.render("Replay !!", True, self.color.dark_brown)
+            self.screen.blit(replay_text, [10, 10])
+            # Blink red light to indicate replay at the top left
+            if step_index % 10 < 5:  # Blinking effect
+                pygame.draw.circle(self.screen, self.color.blink_red, (90, 20), 10)
+
+            pygame.display.update()
+            self.show_score(len(sn_coords) - 1)  # Show changing score during replay
+            self.clock.tick(self.spd * 7)  # 7x speed replay
+
+    def reset_game(self):
+        self.sn_coords = [(self.h // self.sn_size // 2, self.w // self.sn_size // 2)]
+        self.sn_len = 1
+        self.dir = "right"
+        self.board = np.zeros((self.h // self.sn_size, self.w // self.sn_size))
+        self.game_close = False
+        self.r, self.c = self.coord_to_idx(self.x, self.y)
+        self.board[self.r][self.c] = 1
+        self.col_chg = 1
+        self.row_chg = 0
+        self.fd_r, self.fd_c = self.mk_food()
+        self.board[self.fd_r][self.fd_c] = 2
+        self.surv = 0
+        self.replay_data = []
+
 if __name__ == "__main__":
     game = SnakeGame()
     game.game_menu()
-    try:
-        if game.mode == 'ai':
-            game.run(10000)
-        else:
-            game.run(None)
-    except KeyboardInterrupt:
-        print("\t\t\t\t\t!!!Done Already!!!")
