@@ -1,7 +1,4 @@
-Here is the enhanced version of the project description with additional information about the React version of the game:
-
 ---
-
 # Snake Game with Gesture Control (Python + React)
 
 ## Overview
