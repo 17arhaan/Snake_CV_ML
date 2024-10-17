@@ -1,35 +1,40 @@
-# Snake Game with Gesture Control
+---
+# Snake Game with Gesture Control (Python + React)
 
 ## Overview
-This project is a modern take on the classic Snake game, developed in Python using `pygame` and integrated with `OpenCV` for gesture control. It allows players to choose between manual, AI, and gesture-controlled gameplay modes. The game features an interactive menu, live webcam feed for gesture recognition, a countdown before starting, a replay feature, and a leaderboard to keep track of high scores.
+This project is a modern take on the classic Snake game, developed in Python using `pygame` and integrated with `OpenCV` for gesture control. Additionally, it includes a **React** version for web-based gameplay. Both versions of the game allow players to choose between manual, AI, and gesture-controlled gameplay modes. The Python version offers an interactive menu, live webcam feed for gesture recognition, a countdown before starting, a replay feature, and a leaderboard to keep track of high scores. The React version extends the game to the web with an intuitive user interface.
 
 ## Features
 - **Manual Mode**: Control the snake using keyboard arrow keys.
 - **AI Mode**: Watch an AI agent play the game using pre-trained Q-learning data.
-- **Gesture Control Mode**: Use hand gestures via a webcam to control the snake.
-- **Interactive Menu**: Select between different game modes, view the leaderboard, or quit the game.
-- **Live Webcam Feed**: Visualize gestures and see which direction is detected.
+- **Gesture Control Mode**: Use hand gestures via a webcam to control the snake (Python version only).
+- **Interactive Menu**: Select between different game modes, view the leaderboard, or quit the game (Python).
+- **Live Webcam Feed**: Visualize gestures and see which direction is detected (Python version).
+- **React Web Version**: A browser-based version of the game with a user-friendly interface.
 - **Leaderboard**: Keeps track of top scores for different players.
 - **Replay Feature**: Watch a replay of your game after it ends.
 
 ## Game Controls
-- **Manual Mode**: Use the following keys:
+- **Manual Mode**:
   - Arrow keys to move (`UP`, `DOWN`, `LEFT`, `RIGHT`)
-- **Gesture Control**:
+  - React version uses standard keyboard controls.
+- **Gesture Control** (Python version only):
   - Move your hand to the left, right, up, or down to control the snake.
   - The webcam feed shows the detected gesture.
   - Press `q` to quit gesture mode.
 
 ## Installation
-### Prerequisites
+
+### Python Version
+#### Prerequisites
 - Python 3.6+
 - Install the required Python packages:
   ```sh
   pip install pygame opencv-python numpy
   ```
 
-### Running the Game
-1. Clone this repository or download the game script.
+#### Running the Game
+1. Clone the repository or download the game script:
    ```sh
    git clone <repository-url>
    cd <repository-folder>
@@ -39,7 +44,7 @@ This project is a modern take on the classic Snake game, developed in Python usi
    python snake_game.py
    ```
 
-### Optional Bash Commands
+#### Optional Bash Commands
 - Create a virtual environment to manage dependencies:
   ```sh
   python -m venv venv
@@ -54,18 +59,40 @@ This project is a modern take on the classic Snake game, developed in Python usi
   deactivate
   ```
 
-## How to Play
-1. **Launch the Game**: Start the game by running the script.
-2. **Menu Options**: Choose from the following:
+### React Version
+#### Prerequisites
+- Node.js (v14+)
+- Install the required dependencies:
+  ```sh
+  npm install
+  ```
+
+#### Running the React Game
+1. Navigate to the **React** folder of the project:
+   ```sh
+   cd react-snake-game
+   ```
+2. Install dependencies:
+   ```sh
+   npm install
+   ```
+3. Start the development server:
+   ```sh
+   npm start
+   ```
+4. Access the game at `http://localhost:3000`.
+
+### How to Play (Both Versions)
+1. **Launch the Game**: Start the Python or React version.
+2. **Menu Options (Python version)**: Choose from the following:
    - **Manual Mode**: Play the game using your keyboard.
    - **AI Mode**: Watch the AI play the game autonomously.
    - **Gesture Mode**: Play the game using hand gestures via a webcam.
    - **Leaderboard**: View the top scores.
    - **Quit**: Exit the game.
-3. **Countdown**: After selecting a game mode, a 10-second countdown will begin before the game starts.
-4. **Collect Food**: Direct the snake to collect red blocks (food) and grow longer while avoiding collisions with itself and the game boundaries.
+3. **Gameplay**: Use arrow keys or gestures to control the snake, collect food, and grow longer while avoiding collisions with the snake's body or game boundaries.
 
-## Gesture Control
+## Gesture Control (Python version)
 In gesture mode, the game uses the computer's webcam to track hand movements:
 - The webcam feed is displayed in a smaller window for better visibility.
 - The following gestures are used for controlling the snake:
@@ -75,27 +102,29 @@ In gesture mode, the game uses the computer's webcam to track hand movements:
   - **Move Down**: Move your hand to the bottom of the screen.
 
 ## Leaderboard
-- After each game, your score is recorded on the leaderboard.
+- After each game, your score is recorded on the leaderboard (Python).
 - The leaderboard keeps track of the top 10 scores.
 
-## Replay Feature
+## Replay Feature (Python version)
 - After the game ends, you will have the option to watch a replay of your game.
 - The replay allows you to review your moves and see where you went wrong.
 
 ## Code Structure
-- **SnakeGame Class**: The main class that handles all game logic, graphics, and player input.
-- **Gesture Control**: The game uses `OpenCV` to capture and recognize gestures.
-- **AI Mode**: Uses Q-learning to control the snake based on pre-trained data.
+- **SnakeGame Class (Python)**: The main class that handles all game logic, graphics, and player input.
+- **Gesture Control (Python)**: The game uses `OpenCV` to capture and recognize gestures via webcam.
+- **React Version**: The React app contains the web-based game logic and UI.
+- **AI Mode (Python)**: Uses Q-learning to control the snake based on pre-trained data.
 
 ## Customization
 You can modify the game's behavior by changing certain parameters in the code:
-- **Game Speed**: Adjust the `self.spd` value to make the game faster or slower.
+- **Game Speed**: Adjust the `self.spd` value in Python or React to make the game faster or slower.
 - **Grid Size**: Modify `self.sn_size` to change the size of each snake segment.
-- **AI Training**: Replace the Q-table with your own training data to improve the AI's performance.
+- **AI Training** (Python): Replace the Q-table with your own training data to improve the AI's performance.
 
 ## Known Issues
-- The gesture detection may vary depending on lighting conditions and the quality of the webcam.
-- Pressing `q` while in gesture mode will quit the game.
+- The gesture detection may vary depending on lighting conditions and the quality of the webcam (Python version).
+- Pressing `q` while in gesture mode will quit the game (Python version).
+- The React version currently does not support gesture control but offers manual gameplay.
 
 ## License
 This project is open-source and available under the MIT License.
@@ -104,5 +133,7 @@ This project is open-source and available under the MIT License.
 Feel free to submit issues, fork the repository, and send pull requests to contribute to the project.
 
 ## Credits
-- Developed by **Arhaan** using **Python**, **pygame**, and **OpenCV**.
+- Developed by **Arhaan** using **Python**, **pygame**, **OpenCV**, and **React**.
 - Inspired by the classic Snake game.
+
+---
