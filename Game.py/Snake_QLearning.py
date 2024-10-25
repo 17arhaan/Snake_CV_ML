@@ -1,10 +1,8 @@
-#Snake_QLearning.py
 import numpy as np
 import random
 
 class LearnSnake:
     def __init__(self):
-        # Initialization code...
         self.screen_width = 600
         self.screen_height = 400
         self.snake_size = 10
@@ -22,14 +20,14 @@ class LearnSnake:
             int(self.direction == "right"),
             int(self.direction == "up"),
             int(self.direction == "down"),
-            int(self.food_r < head_r),  # Food is above
-            int(self.food_r > head_r),  # Food is below
-            int(self.food_c < head_c),  # Food is left
-            int(self.food_c > head_c),  # Food is right
-            self.is_collision(head_r + 1, head_c),  # Down collision
-            self.is_collision(head_r - 1, head_c),  # Up collision
-            self.is_collision(head_r, head_c + 1),  # Right collision
-            self.is_collision(head_r, head_c - 1)   # Left collision
+            int(self.food_r < head_r),  
+            int(self.food_r > head_r),  
+            int(self.food_c < head_c),  
+            int(self.food_c > head_c),  
+            self.is_collision(head_r + 1, head_c),  
+            self.is_collision(head_r - 1, head_c),  
+            self.is_collision(head_r, head_c + 1),  
+            self.is_collision(head_r, head_c - 1)   
         ]
         return tuple(state)
 
@@ -38,17 +36,15 @@ class LearnSnake:
                (row, col) in self.snake_coords
 
     def step(self, action):
-        # Update direction
-        if action == 0:  # Left
+        if action == 0:  
             self.direction = "left"
-        elif action == 1:  # Right
+        elif action == 1:  
             self.direction = "right"
-        elif action == 2:  # Up
+        elif action == 2:  
             self.direction = "up"
-        elif action == 3:  # Down
+        elif action == 3:  
             self.direction = "down"
 
-        # Move snake
         head_r, head_c = self.snake_coords[-1]
         if self.direction == "left":
             head_c -= 1
@@ -61,19 +57,19 @@ class LearnSnake:
 
         if self.is_collision(head_r, head_c):
             self.game_close = True
-            return self.get_state(), -10, True  # Negative reward for dying
+            return self.get_state(), -10, True
 
         self.snake_coords.append((head_r, head_c))
 
         if (head_r, head_c) == (self.food_r, self.food_c):
             self.snake_length += 1
             self.food_r, self.food_c = self.generate_food()
-            return self.get_state(), 1, False  # Reward for eating
+            return self.get_state(), 1, False 
 
         if len(self.snake_coords) > self.snake_length:
             self.snake_coords.pop(0)
 
-        return self.get_state(), 0, False  # Neutral reward for survival
+        return self.get_state(), 0, False  
 
     def generate_food(self):
         while True:

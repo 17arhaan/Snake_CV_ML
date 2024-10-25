@@ -1,0 +1,43 @@
+discount_rate -> dr
+learning_rate -> lr
+explore_rate -> exp_rate
+eps_discount -> exp_decay
+min_eps -> min_eps
+Total_Iterations_for_training -> episodes
+table -> q_table
+    Q(state,action) = (1−lr)×Q(state,action) + lr×(reward+dr×max(Q(new_state,actions)))
+        state -> 12 Binary Features()
+            Direction0 -> Left (1 or 0)
+            Direction1 -> Right (1 or 0)
+            Direction2 -> Up (1 or 0)
+            Direction3 -> Down (1 or 0)
+            Food_X_Up -> Checks for X-Coordinate of food with snake head is above or not (1 or 0)
+            Food_X_Down -> Checks for X-Coordinate of food with snake head is below or not (1 or 0)
+            Food_Y_Up -> Checks for Y-Coordinate of food with snake head is right or not (1 or 0)
+            Food_Y_Down -> Checks for Y-Coordinate of food with snake head is left or not (1 or 0)
+            Unsafe_X+1 -> Checks for X-Coordinate below of Snake_head is safe or not
+            Unsafe_X-1 -> Checks for X-Coordinate above of Snake_head is safe or not
+            Unsafe_Y+1 -> Checks for X-Coordinate below of Snake_head is safe or not
+            Unsafe_Y-1 -> Checks for X-Coordinate above of Snake_head is safe or not
+env -> env
+score -> scores
+survived -> survived
+    survived = (Time_in_ms_before_death + num_moves) * apples_in_this_cycle
+get_action -> choose_action
+train -> train
+current_state -> ep
+steps_without_food -> steps_no_food
+current_state -> state
+    Tuple of 12 Features before next move
+new_state -> new_state
+    Tuple of 12 features after previous move
+reward -> reward
+    +1 apple eating
+    -1 death 
+    -0.01 for too much movement which will eventually lead to death
+Score1 -> Game Score Number of Apples eaten
+Score2 -> Q_Table Score 
+    score = total_snake_length / num_episodes_to_reach_it
+SnakePygame.py -> Pygame implementation for snake game
+Snake_QLearning.py -> References for QAgent to make random moves and fill up q_table
+SnakeQAgent.py -> Agent Script for trainign models saves the q_table data using pickling after every

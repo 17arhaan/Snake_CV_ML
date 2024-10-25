@@ -1,11 +1,7 @@
 [
     {
-        "name": "Snake Agent",
-        "score": 70,
-        "tag": "Snake Agent"
-    },
-    {
         "name": "Arhaan",
-        "score": 0
+        "score": 0,
+        "tag": "Player"
     }
 ]
