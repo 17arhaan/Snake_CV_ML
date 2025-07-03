@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Debug Camera - Snake CV</title>
+    <style>
+        body { 
+            background: #000; 
+            color: #0f0; 
+            font-family: monospace; 
+            padding: 20px; 
+            text-align: center; 
+        }
+        video { 
+            border: 2px solid #0f0; 
+            max-width: 640px; 
+            width: 100%; 
+            transform: scaleX(-1); 
+        }
+        button { 
+            background: #0f0; 
+            color: #000; 
+            border: none; 
+            padding: 10px 20px; 
+            margin: 10px; 
+            font-family: monospace; 
+            cursor: pointer; 
+        }
+        .status { 
+            background: #111; 
+            padding: 10px; 
+            margin: 10px 0; 
+            border: 1px solid #444; 
+        }
+    </style>
+</head>
+<body>
+    <h1>🐍 Camera Debug Test</h1>
+    
+    <div id="status" class="status">Status: Not started</div>
+    
+    <button onclick="startCamera()">Start Camera</button>
+    <button onclick="stopCamera()">Stop Camera</button>
+    
+    <div id="videoContainer" style="display: none; margin-top: 20px;">
+        <video id="video" autoplay muted playsinline></video>
+        <div style="margin-top: 10px;">
+            <div>Video State: <span id="videoState">-</span></div>
+            <div>Stream State: <span id="streamState">-</span></div>
+            <div>Ready State: <span id="readyState">-</span></div>
+        </div>
+    </div>
+    
+    <div id="debug" class="status" style="text-align: left; margin-top: 20px;"></div>
+
+    <script>
+        let stream = null;
+        let video = null;
+        
+        function log(msg) {
+            console.log(msg);
+            document.getElementById('debug').innerHTML += new Date().toLocaleTimeString() + ': ' + msg + '<br>';
+            document.getElementById('status').textContent = 'Status: ' + msg;
+        }
+        
+        function updateVideoInfo() {
+            if (video) {
+                document.getElementById('videoState').textContent = video.paused ? 'paused' : 'playing';
+                document.getElementById('streamState').textContent = video.srcObject ? 'has stream' : 'no stream';
+                document.getElementById('readyState').textContent = video.readyState;
+            }
+        }
+        
+        async function startCamera() {
+            try {
+                log('Requesting camera...');
+                
+                stream = await navigator.mediaDevices.getUserMedia({
+                    video: {
+                        width: { ideal: 640 },
+                        height: { ideal: 480 },
+                        facingMode: 'user'
+                    }
+                });
+                
+                log('Got camera stream');
+                
+                video = document.getElementById('video');
+                video.srcObject = stream;
+                
+                video.onloadeddata = () => {
+                    log('Video loaded data');
+                    document.getElementById('videoContainer').style.display = 'block';
+                    updateVideoInfo();
+                };
+                
+                video.onplay = () => {
+                    log('Video started playing');
+                    updateVideoInfo();
+                };
+                
+                video.onerror = (e) => {
+                    log('Video error: ' + e.message);
+                };
+                
+                // Update info every second
+                setInterval(updateVideoInfo, 1000);
+                
+            } catch (error) {
+                log('Camera error: ' + error.message);
+            }
+        }
+        
+        function stopCamera() {
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+                stream = null;
+                log('Camera stopped');
+            }
+            
+            if (video) {
+                video.srcObject = null;
+            }
+            
+            document.getElementById('videoContainer').style.display = 'none';
+        }
+        
+        // Auto-start on load for testing
+        log('Page loaded - click Start Camera');
+    </script>
+</body>
+</html> 

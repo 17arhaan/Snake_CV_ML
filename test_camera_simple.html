@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Simple Camera Test</title>
+    <style>
+        body { background: black; color: lime; font-family: monospace; text-align: center; padding: 20px; }
+        video { border: 2px solid lime; max-width: 100%; transform: scaleX(-1); }
+        button { background: lime; color: black; padding: 10px; margin: 10px; border: none; font-family: monospace; cursor: pointer; }
+        .log { background: #111; padding: 10px; margin: 10px; text-align: left; border: 1px solid #333; max-height: 200px; overflow-y: auto; }
+    </style>
+</head>
+<body>
+    <h1>Simple Camera Test</h1>
+    <button onclick="testCamera()">Test Camera</button>
+    <div id="status">Click to test camera</div>
+    <video id="video" style="display: none;" autoplay muted playsinline></video>
+    <div id="log" class="log"></div>
+
+    <script>
+        function log(msg) {
+            const timestamp = new Date().toLocaleTimeString();
+            document.getElementById('log').innerHTML += `[${timestamp}] ${msg}<br>`;
+            document.getElementById('status').textContent = msg;
+            console.log(msg);
+        }
+
+        async function testCamera() {
+            try {
+                log('Testing camera access...');
+                
+                // Check if getUserMedia is available
+                if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                    throw new Error('getUserMedia not supported');
+                }
+
+                log('Requesting camera stream...');
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: 'user' }
+                });
+
+                log('✅ Got camera stream!');
+                
+                const video = document.getElementById('video');
+                video.srcObject = stream;
+                video.style.display = 'block';
+                
+                video.onloadeddata = () => {
+                    log('✅ Video loaded and playing!');
+                };
+
+                await video.play();
+                log('✅ Video play() successful');
+
+            } catch (error) {
+                log('❌ Error: ' + error.message);
+                console.error('Camera error:', error);
+            }
+        }
+
+        log('Page loaded - ready to test');
+    </script>
+</body>
+</html> 

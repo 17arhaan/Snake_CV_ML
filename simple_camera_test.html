@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Camera Test - Snake CV</title>
+    <style>
+        body {
+            background: #000;
+            color: #00ff41;
+            font-family: monospace;
+            padding: 20px;
+            text-align: center;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        
+        video {
+            border: 2px solid #00ff41;
+            border-radius: 10px;
+            max-width: 100%;
+            height: auto;
+            transform: scaleX(-1);
+        }
+        
+        button {
+            background: #00ff41;
+            color: #000;
+            border: none;
+            padding: 10px 20px;
+            margin: 10px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-family: monospace;
+            font-weight: bold;
+        }
+        
+        button:hover {
+            background: #00cc33;
+        }
+        
+        button:disabled {
+            background: #666;
+            cursor: not-allowed;
+        }
+        
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+        
+        .status.success { background: #004400; border: 1px solid #00ff41; }
+        .status.error { background: #440000; border: 1px solid #ff4400; }
+        .status.warning { background: #444400; border: 1px solid #ffff00; }
+        
+        .controls {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 10px;
+            max-width: 300px;
+            margin: 20px auto;
+        }
+        
+        .direction-test {
+            padding: 20px;
+            border: 2px solid #444;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .direction-test:hover {
+            border-color: #00ff41;
+            background: #002200;
+        }
+        
+        .direction-test.active {
+            border-color: #00ff41;
+            background: #004400;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🐍 Snake CV - Camera Test</h1>
+        
+        <div id="status" class="status warning">
+            Click "Start Camera" to test camera functionality
+        </div>
+        
+        <button id="cameraBtn" onclick="toggleCamera()">Start Camera</button>
+        <button id="testBtn" onclick="testBackend()" disabled>Test Backend</button>
+        
+        <div id="videoContainer" style="display: none;">
+            <video id="video" autoplay muted playsinline></video>
+            
+            <div class="controls">
+                <div></div>
+                <div id="up" class="direction-test" onclick="testDirection('UP')">⬆️ UP</div>
+                <div></div>
+                
+                <div id="left" class="direction-test" onclick="testDirection('LEFT')">⬅️ LEFT</div>
+                <div style="display: flex; align-items: center; justify-content: center;">👆</div>
+                <div id="right" class="direction-test" onclick="testDirection('RIGHT')">➡️ RIGHT</div>
+                
+                <div></div>
+                <div id="down" class="direction-test" onclick="testDirection('DOWN')">⬇️ DOWN</div>
+                <div></div>
+            </div>
+            
+            <p style="margin-top: 20px;">
+                <strong>Instructions:</strong><br>
+                1. Point your finger at the arrows above<br>
+                2. Move your hand in different directions<br>
+                3. The snake should follow your movements
+            </p>
+        </div>
+        
+        <div id="debug" style="margin-top: 20px; text-align: left; background: #111; padding: 10px; border-radius: 5px;"></div>
+    </div>
+
+    <script>
+        let stream = null;
+        let isProcessing = false;
+        let video = null;
+        
+        function updateStatus(message, type = 'warning') {
+            const statusEl = document.getElementById('status');
+            statusEl.textContent = message;
+            statusEl.className = `status ${type}`;
+        }
+        
+        function log(message) {
+            const debugEl = document.getElementById('debug');
+            const timestamp = new Date().toLocaleTimeString();
+            debugEl.innerHTML += `[${timestamp}] ${message}<br>`;
+            debugEl.scrollTop = debugEl.scrollHeight;
+            console.log(message);
+        }
+        
+        async function toggleCamera() {
+            const btn = document.getElementById('cameraBtn');
+            const videoContainer = document.getElementById('videoContainer');
+            const testBtn = document.getElementById('testBtn');
+            
+            if (stream) {
+                // Stop camera
+                stream.getTracks().forEach(track => track.stop());
+                stream = null;
+                video.srcObject = null;
+                
+                btn.textContent = 'Start Camera';
+                videoContainer.style.display = 'none';
+                testBtn.disabled = true;
+                updateStatus('Camera stopped');
+                log('Camera stopped');
+                
+            } else {
+                // Start camera
+                try {
+                    updateStatus('Requesting camera access...', 'warning');
+                    log('Requesting camera access...');
+                    
+                    stream = await navigator.mediaDevices.getUserMedia({ 
+                        video: { 
+                            width: { ideal: 640 },
+                            height: { ideal: 480 },
+                            facingMode: 'user'
+                        } 
+                    });
+                    
+                    video = document.getElementById('video');
+                    video.srcObject = stream;
+                    
+                    video.onloadeddata = () => {
+                        btn.textContent = 'Stop Camera';
+                        videoContainer.style.display = 'block';
+                        testBtn.disabled = false;
+                        updateStatus('Camera active! Now test the backend connection', 'success');
+                        log('Camera started successfully');
+                    };
+                    
+                } catch (error) {
+                    updateStatus('Camera access failed: ' + error.message, 'error');
+                    log('Camera error: ' + error.message);
+                }
+            }
+        }
+        
+        async function testBackend() {
+            try {
+                updateStatus('Testing backend connection...', 'warning');
+                log('Testing backend...');
+                
+                const response = await fetch('http://localhost:5001/health');
+                if (response.ok) {
+                    const data = await response.json();
+                    updateStatus('Backend connected! Ready for finger detection', 'success');
+                    log('Backend response: ' + JSON.stringify(data));
+                } else {
+                    updateStatus('Backend not responding (start it first)', 'error');
+                    log('Backend not responding: ' + response.status);
+                }
+            } catch (error) {
+                updateStatus('Backend connection failed: ' + error.message, 'error');
+                log('Backend error: ' + error.message);
+            }
+        }
+        
+        function testDirection(direction) {
+            log(`Testing direction: ${direction}`);
+            
+            // Visual feedback
+            document.querySelectorAll('.direction-test').forEach(el => el.classList.remove('active'));
+            document.getElementById(direction.toLowerCase()).classList.add('active');
+            
+            setTimeout(() => {
+                document.getElementById(direction.toLowerCase()).classList.remove('active');
+            }, 500);
+        }
+        
+        // Auto-test backend on load
+        window.onload = () => {
+            log('Camera test loaded');
+            testBackend();
+        };
+    </script>
+</body>
+</html> 
